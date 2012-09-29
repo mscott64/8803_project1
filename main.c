@@ -12,15 +12,20 @@ int main(int argc, char *argv[])
 {
   int c;
   int port_num = DEFAULT_PORT_NUM;
-  while((c = getopt(argc, argv, "p:")) != -1)
+  char *hostname = "ubuntu";
+  opterr = 0;
+  while((c = getopt(argc, argv, "h:p:")) != -1)
   {
     switch(c)
     {
+    case 'h':
+      hostname = optarg;
+      break;
     case 'p':
       port_num = atoi(optarg);
       break;
     case '?':
-      if(optopt == 'p')
+      if(optopt == 'p'|| optopt == 'h')
 	printf("Option -%c requires an argument\n", optopt);
       else
 	printf("Unknown option -%c\n", optopt);
@@ -34,10 +39,12 @@ int main(int argc, char *argv[])
     printf("Invalid port number %d\n", port_num);
     return 0;
   }
-  return server_create(&port_num);
+  
+  server_create(&port_num);
+  return 0;
 }
 
 void printUsage(void)
 {
-  printf("Usage: main [-p port_number]\n");
+  printf("Usage: main [-p port_number] [-h hostname]\n");
 }
