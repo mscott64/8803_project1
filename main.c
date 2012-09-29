@@ -1,4 +1,7 @@
+#include <assert.h>
+#include <client.h>
 #include <ctype.h>
+#include <pthread.h>
 #include <server.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +13,7 @@ void printUsage(void);
 
 int main(int argc, char *argv[])
 {
+  pthread_t client_thread, server_thread;
   int c;
   int port_num = DEFAULT_PORT_NUM;
   char *hostname = "ubuntu";
@@ -40,7 +44,14 @@ int main(int argc, char *argv[])
     return 0;
   }
   
-  server_create(&port_num);
+  int e;
+  e = pthread_create(&server_thread, NULL, server_create, &port_num);
+  assert(e == 0);
+
+  e = pthread_create(&client_thread, NULL, client_create, NULL);
+  assert(e == 0);
+  
+  pthread_join(client_thread, NULL);
   return 0;
 }
 

@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-I. -lpthread
-DEPS = server.h
-OBJ = server.o main.o
+DEPS = server.h client.h
+OBJ = server.o client.o main.o
 
 all: main
 

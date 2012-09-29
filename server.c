@@ -27,11 +27,11 @@ pthread_t workers[NUM_THREADS];
 void *boss(void *data);
 void *worker(void *data);
 
-int server_create(void *port_num_ptr)
+void *server_create(void *data)
 {
   pthread_t boss_thread;
   int e, i;
-  e = pthread_create(&boss_thread, NULL, boss, port_num_ptr);
+  e = pthread_create(&boss_thread, NULL, boss, data);
   assert(e == 0);
 
   for(i = 0; i < NUM_THREADS; i++)
@@ -48,7 +48,7 @@ int server_create(void *port_num_ptr)
     e = pthread_join(workers[i], NULL);
     assert(e == 0);
   }
-  return 0;
+  return NULL;
 }
 
 void *boss(void *data)
