@@ -5,16 +5,21 @@
 #include <server.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #define DEFAULT_PORT_NUM 1234
 #define DEFAULT_MACHINE "ubuntu"
 #define DEFAULT_REQUESTS 50
+#define DEFAULT_FILENAME "hello"
+#define GET "GET "
+#define GET_LEN 4
 
 struct client_data {
   char *hostname;
   int port_num;
   int num_requests;
+  char *request;
 };
 
 void printUsage(void);
@@ -26,11 +31,15 @@ int main(int argc, char *argv[])
   int port_num = DEFAULT_PORT_NUM;
   char *hostname = DEFAULT_MACHINE;
   int requests = DEFAULT_REQUESTS;
+  char *filename = DEFAULT_FILENAME;
   opterr = 0;
-  while((c = getopt(argc, argv, "h:p:r:")) != -1)
+  while((c = getopt(argc, argv, "h:p:r:f:")) != -1)
   {
     switch(c)
     {
+    case 'f':
+      filename = optarg;
+      break;
     case 'h':
       hostname = optarg;
       break;
@@ -41,7 +50,7 @@ int main(int argc, char *argv[])
       requests = atoi(optarg);
       break;
     case '?':
-      if(optopt == 'p'|| optopt == 'h' || optopt == 'r')
+      if(optopt == 'p'|| optopt == 'h' || optopt == 'r' || optopt == 'f')
 	printf("Option -%c requires an argument\n", optopt);
       else
 	printf("Unknown option -%c\n", optopt);
@@ -66,9 +75,13 @@ int main(int argc, char *argv[])
   assert(e == 0);
 
   struct client_data data;
+  char request[strlen(filename) + GET_LEN + 1];
+  memcpy(request, GET, GET_LEN);
+  memcpy(request + GET_LEN, filename, strlen(filename) + 1);
   data.hostname = hostname;
   data.port_num = port_num;
   data.num_requests = requests;
+  data.request = request;
   e = pthread_create(&client_thread, NULL, client_create, &data);
   assert(e == 0);
   
@@ -79,5 +92,6 @@ int main(int argc, char *argv[])
 
 void printUsage(void)
 {
-  printf("Usage: main [-p port_number] [-h hostname]\n");
+  printf("Usage: main\n");
+  printf("Options:\n[-p port_number]\n[-h hostname]\n[-r num requests]\n[-f filename]\n");
 }

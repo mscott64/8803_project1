@@ -10,7 +10,7 @@
 #include <unistd.h>
 
 #define NUM_THREADS 5
-#define BUFFER_SIZE 100
+#define BUFFER_SIZE 10000
 #define HOST_NAME_SIZE 100
 #define SOCKET_ERROR -1
 
@@ -41,16 +41,18 @@ void *load(void *data)
   struct hostent *pHostInfo; /* holds info about machine */
   struct sockaddr_in address; /* Internet socket address struct */
   long nHostAddress;
-  char pBuffer[BUFFER_SIZE];
-  unsigned nReadAmount;
   char strHostName[HOST_NAME_SIZE];
+  //char output[BUFFER_SIZE];
   int nHostPort, numRequests;
+  char *request;
   
-  strcpy(strHostName, *(char **)data);
-  nHostPort = *(int *)(((char *)data) + 4);
-  numRequests = *(int *)(((char *)data) + 8);
-  printf("Connecting to %s on port %d\n", strHostName, nHostPort);
-
+  int *info_ptr = (int *)data;
+  strcpy(strHostName, *(char **)info_ptr++);
+  nHostPort = *(int *)info_ptr++;
+  numRequests = *(int *)info_ptr++;
+  request = *(char **)info_ptr;
+  //printf("Connecting to %s on port %d\n", strHostName, nHostPort);
+ 
   //printf("Get host information\n");
   pHostInfo = gethostbyname(strHostName);
   memcpy(&nHostAddress, pHostInfo->h_addr, pHostInfo->h_length);
@@ -73,9 +75,11 @@ void *load(void *data)
       printf("Could not connect to host\n");
       return NULL;
     }
-    nReadAmount = read(hSocket, pBuffer, BUFFER_SIZE);
-    write(hSocket, pBuffer, nReadAmount);
-    
+    printf("%s\n", request);
+    write(hSocket, request, strlen(request) + 1);
+    //read(hSocket, output, BUFFER_SIZE);
+    //output[BUFFER_SIZE - 1] = 0;
+
     if(close(hSocket) == SOCKET_ERROR)
     {
       printf("Could not close socket\n");

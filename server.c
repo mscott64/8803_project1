@@ -12,8 +12,10 @@
 #define NUM_THREADS 10
 #define Q_SIZE 8
 #define SOCKET_ERROR -1
-#define MESSAGE "This is my message: I'm so excited!!!"
-#define BUFFER_SIZE 100
+#define BUFFER_SIZE 10000
+#define NOT_FOUND_ERROR "404 Not Found"
+#define BAD_REQUEST "400 Bad Request"
+#define INTERNAL_ERROR "500 Internal Error"
 
 int queue[Q_SIZE];
 int num = 0;
@@ -107,6 +109,8 @@ void *worker(void *data)
 {
   int hSocket;
   char pBuffer[BUFFER_SIZE];
+  char method[BUFFER_SIZE];
+  char path[BUFFER_SIZE];
   while(1)
     {
       pthread_mutex_lock(&lock);
@@ -119,17 +123,29 @@ void *worker(void *data)
       pthread_cond_signal(&full);
       
       /* Process information */
-      strcpy(pBuffer, MESSAGE);
-      write(hSocket, pBuffer, strlen(pBuffer) + 1);
+      //strcpy(pBuffer, MESSAGE);
+      //write(hSocket, pBuffer, strlen(pBuffer) + 1);
       //printf("Wrote to socket %d\n", hSocket);
       read(hSocket, pBuffer, BUFFER_SIZE);
+      if(sscanf(pBuffer, "%[^ ] %[^ ]", method, path) != 2)
+	{
+	  //write(hSocket, BAD_REQUEST, strlen(BAD_REQUEST) + 1);
+	  printf("Bad request\n");
+	  return NULL;
+	}
 
+      int curr;
+      pthread_mutex_lock(&reqs_lock);
+      curr = ++reqs;
+      pthread_mutex_unlock(&reqs_lock);
+
+      printf("method: %s path: %s %d\n", method, path, curr);
       if(close(hSocket) == SOCKET_ERROR)
       {
 	printf("Could not close socket\n");
 	return NULL;
       }
-      if(strcmp(pBuffer, MESSAGE) == 0)
+      /*if(strcmp(pBuffer, MESSAGE) == 0)
       {
 	int curr;
 	pthread_mutex_lock(&reqs_lock);
@@ -138,7 +154,7 @@ void *worker(void *data)
 	printf("The messages match %d\n", curr);
       }
       else
-	printf("Something was changed\n");
+      printf("Something was changed\n");*/
   
     }
   return NULL;
