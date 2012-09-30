@@ -1,21 +1,15 @@
 #include <assert.h>
+#include <constants.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <server.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
-
-#define NUM_THREADS 10
-#define Q_SIZE 8
-#define SOCKET_ERROR -1
-#define BUFFER_SIZE 10000
-#define NOT_FOUND_ERROR "404 Not Found"
-#define BAD_REQUEST "400 Bad Request"
-#define INTERNAL_ERROR "500 Internal Error"
 
 int queue[Q_SIZE];
 int num = 0;
@@ -24,12 +18,13 @@ int rem = 0;
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t empty = PTHREAD_COND_INITIALIZER;
 pthread_cond_t full = PTHREAD_COND_INITIALIZER;
-pthread_t workers[NUM_THREADS];
+pthread_t workers[NUM_THREADS_SERVER];
 
 int reqs = 0;
 pthread_mutex_t reqs_lock = PTHREAD_MUTEX_INITIALIZER;
 void *boss(void *data);
 void *worker(void *data);
+void *send_error(int hSocket, char *error_msg);
 
 void *server_create(void *data)
 {
@@ -38,7 +33,7 @@ void *server_create(void *data)
   e = pthread_create(&boss_thread, NULL, boss, data);
   assert(e == 0);
 
-  for(i = 0; i < NUM_THREADS; i++)
+  for(i = 0; i < NUM_THREADS_SERVER; i++)
   {
     e = pthread_create(&workers[i], NULL, worker, NULL);
     assert(e == 0);
@@ -47,7 +42,7 @@ void *server_create(void *data)
   e = pthread_join(boss_thread, NULL);
   assert(e == 0);
 
-  for(i = 0; i < NUM_THREADS; i++)
+  for(i = 0; i < NUM_THREADS_SERVER; i++)
   {
     e = pthread_join(workers[i], NULL);
     assert(e == 0);
@@ -61,7 +56,6 @@ void *boss(void *data)
   struct sockaddr_in address; /* Internet socket address struct */
   int nAddressSize = sizeof(struct sockaddr_in);
   int nHostPort = *(int *)data;
-  //printf("Starting server\n");
 
   hServerSocket = socket(AF_INET, SOCK_STREAM, 0);
   if(hServerSocket == SOCKET_ERROR)
@@ -87,11 +81,9 @@ void *boss(void *data)
     return NULL;
   }
   
-  //printf("Listening...\n");
   while(1)
   {
     hSocket = accept(hServerSocket, (struct sockaddr *)&address, (socklen_t *)&nAddressSize);
-    //printf("Got a connection\n");
     pthread_mutex_lock(&lock);
     while(num == Q_SIZE)
       pthread_cond_wait(&full, &lock);
@@ -100,9 +92,8 @@ void *boss(void *data)
     num++;
     pthread_mutex_unlock(&lock);
     pthread_cond_signal(&empty);
-    //printf("Added socket %d\n", hSocket);
+    return NULL;
   }
-  return NULL;
 }
 
 void *worker(void *data)
@@ -122,40 +113,49 @@ void *worker(void *data)
       pthread_mutex_unlock(&lock);
       pthread_cond_signal(&full);
       
-      /* Process information */
-      //strcpy(pBuffer, MESSAGE);
-      //write(hSocket, pBuffer, strlen(pBuffer) + 1);
-      //printf("Wrote to socket %d\n", hSocket);
+      /* Process information */ 
       read(hSocket, pBuffer, BUFFER_SIZE);
       if(sscanf(pBuffer, "%[^ ] %[^ ]", method, path) != 2)
-	{
-	  //write(hSocket, BAD_REQUEST, strlen(BAD_REQUEST) + 1);
-	  printf("Bad request\n");
-	  return NULL;
-	}
+	return send_error(hSocket, BAD_REQUEST);
+      
+      if(strcasecmp(method, "get") != 0)
+	return send_error(hSocket, NOT_IMPLEMENTED);
 
-      int curr;
-      pthread_mutex_lock(&reqs_lock);
-      curr = ++reqs;
-      pthread_mutex_unlock(&reqs_lock);
-
-      printf("method: %s path: %s %d\n", method, path, curr);
+      int len = strlen(path);
+      if(path[0] == '/' || strcmp(path, "..") == 0 || strncmp(path, "../", 3) == 0 || strstr(path, "/../") != NULL || strcmp(&(path[len-3]), "/..") == 0)
+	return send_error(hSocket, BAD_REQUEST);
+      
+      FILE *f = fopen(path, "r");
+      if(f)
+      {
+	while(fgets(pBuffer, BUFFER_SIZE, f) != NULL)
+	  write(hSocket, pBuffer, BUFFER_SIZE);
+	pBuffer[0] = '\0';
+	write(hSocket, pBuffer, BUFFER_SIZE);
+      }
+      else
+      {
+	return send_error(hSocket, NOT_FOUND);
+      }      
+      
       if(close(hSocket) == SOCKET_ERROR)
       {
 	printf("Could not close socket\n");
 	return NULL;
       }
-      /*if(strcmp(pBuffer, MESSAGE) == 0)
-      {
-	int curr;
-	pthread_mutex_lock(&reqs_lock);
-	curr = ++reqs;
-	pthread_mutex_unlock(&reqs_lock);
-	printf("The messages match %d\n", curr);
-      }
-      else
-      printf("Something was changed\n");*/
-  
     }
+  return NULL;
+}
+
+void *send_error(int hSocket, char *error_msg)
+{
+  char pBuffer[BUFFER_SIZE];
+  //write(hSocket, error_msg, strlen(error_msg) + 1);
+  printf("%s\n", error_msg);
+  pBuffer[0] = '\0';
+  write(hSocket, pBuffer, BUFFER_SIZE);
+  if(close(hSocket) == SOCKET_ERROR)
+    printf("Could not close socket\n");
+  
   return NULL;
 }

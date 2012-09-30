@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <client.h>
+#include <constants.h>
 #include <ctype.h>
 #include <pthread.h>
 #include <server.h>
@@ -7,13 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#define DEFAULT_PORT_NUM 1234
-#define DEFAULT_MACHINE "ubuntu"
-#define DEFAULT_REQUESTS 50
-#define DEFAULT_FILENAME "hello"
-#define GET "GET "
-#define GET_LEN 4
 
 struct client_data {
   char *hostname;

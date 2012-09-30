@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <constants.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -9,24 +10,19 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define NUM_THREADS 5
-#define BUFFER_SIZE 10000
-#define HOST_NAME_SIZE 100
-#define SOCKET_ERROR -1
-
 void *load(void *data);
 
 void* client_create(void *data)
 {
-  pthread_t load_threads[NUM_THREADS];
+  pthread_t load_threads[NUM_THREADS_CLIENT];
   int i, e;
-  for(i = 0; i < NUM_THREADS; i++)
+  for(i = 0; i < NUM_THREADS_CLIENT; i++)
   {
     e = pthread_create(&load_threads[i], NULL, load, data);
     assert(e == 0);
   }
 
-  for(i = 0; i < NUM_THREADS; i++)
+  for(i = 0; i < NUM_THREADS_CLIENT; i++)
   {
     e = pthread_join(load_threads[i], NULL);
     assert(e == 0);
@@ -42,16 +38,15 @@ void *load(void *data)
   struct sockaddr_in address; /* Internet socket address struct */
   long nHostAddress;
   char strHostName[HOST_NAME_SIZE];
-  //char output[BUFFER_SIZE];
   int nHostPort, numRequests;
   char *request;
-  
+  char output[BUFFER_SIZE];
   int *info_ptr = (int *)data;
   strcpy(strHostName, *(char **)info_ptr++);
-  nHostPort = *(int *)info_ptr++;
-  numRequests = *(int *)info_ptr++;
+  nHostPort = *info_ptr++;
+  numRequests = *info_ptr++;
   request = *(char **)info_ptr;
-  //printf("Connecting to %s on port %d\n", strHostName, nHostPort);
+  printf("Connecting to %s on port %d\n%d requests of %s\n", strHostName, nHostPort, numRequests, request);
  
   //printf("Get host information\n");
   pHostInfo = gethostbyname(strHostName);
@@ -75,10 +70,15 @@ void *load(void *data)
       printf("Could not connect to host\n");
       return NULL;
     }
-    printf("%s\n", request);
+    
+    //printf("%s\n", request);
     write(hSocket, request, strlen(request) + 1);
-    //read(hSocket, output, BUFFER_SIZE);
-    //output[BUFFER_SIZE - 1] = 0;
+    while(1)
+    {
+      read(hSocket, output, BUFFER_SIZE);
+      if(output[0] == '\0')
+	break;
+    }
 
     if(close(hSocket) == SOCKET_ERROR)
     {
