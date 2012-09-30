@@ -24,6 +24,8 @@ pthread_cond_t empty = PTHREAD_COND_INITIALIZER;
 pthread_cond_t full = PTHREAD_COND_INITIALIZER;
 pthread_t workers[NUM_THREADS];
 
+int reqs = 0;
+pthread_mutex_t reqs_lock = PTHREAD_MUTEX_INITIALIZER;
 void *boss(void *data);
 void *worker(void *data);
 
@@ -57,7 +59,7 @@ void *boss(void *data)
   struct sockaddr_in address; /* Internet socket address struct */
   int nAddressSize = sizeof(struct sockaddr_in);
   int nHostPort = *(int *)data;
-  printf("Starting server\n");
+  //printf("Starting server\n");
 
   hServerSocket = socket(AF_INET, SOCK_STREAM, 0);
   if(hServerSocket == SOCKET_ERROR)
@@ -83,11 +85,11 @@ void *boss(void *data)
     return NULL;
   }
   
-  printf("Listening...\n");
+  //printf("Listening...\n");
   while(1)
   {
     hSocket = accept(hServerSocket, (struct sockaddr *)&address, (socklen_t *)&nAddressSize);
-    printf("Got a connection\n");
+    //printf("Got a connection\n");
     pthread_mutex_lock(&lock);
     while(num == Q_SIZE)
       pthread_cond_wait(&full, &lock);
@@ -96,7 +98,7 @@ void *boss(void *data)
     num++;
     pthread_mutex_unlock(&lock);
     pthread_cond_signal(&empty);
-    printf("Added socket %d\n", hSocket);
+    //printf("Added socket %d\n", hSocket);
   }
   return NULL;
 }
@@ -119,19 +121,25 @@ void *worker(void *data)
       /* Process information */
       strcpy(pBuffer, MESSAGE);
       write(hSocket, pBuffer, strlen(pBuffer) + 1);
-      printf("Wrote to socket %d\n", hSocket);
-      /*read(hSocket, pBuffer, BUFFER_SIZE);
-      if(strcmp(pBuffer, MESSAGE) == 0)
-	printf("The messages match\n");
-      else
-	printf("Something was changed\n");
-      */
+      //printf("Wrote to socket %d\n", hSocket);
+      read(hSocket, pBuffer, BUFFER_SIZE);
+
       if(close(hSocket) == SOCKET_ERROR)
       {
 	printf("Could not close socket\n");
 	return NULL;
       }
-      
+      if(strcmp(pBuffer, MESSAGE) == 0)
+      {
+	int curr;
+	pthread_mutex_lock(&reqs_lock);
+	curr = ++reqs;
+	pthread_mutex_unlock(&reqs_lock);
+	printf("The messages match %d\n", curr);
+      }
+      else
+	printf("Something was changed\n");
+  
     }
   return NULL;
 }

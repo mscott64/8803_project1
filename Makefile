@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-I. -lpthread
+CFLAGS=-I. -lpthread -Wall
 DEPS = server.h client.h
 OBJ = server.o client.o main.o
 
