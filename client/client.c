@@ -126,9 +126,9 @@ void *load(void *data)
   address.sin_addr.s_addr = nHostAddress;
   address.sin_port = htons(nHostPort);
   address.sin_family = AF_INET;
+
   for(i = 0; i < num_requests; i++)
   {
-    
     hSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if(hSocket == SOCKET_ERROR)
     {
@@ -143,17 +143,13 @@ void *load(void *data)
     }
     int file_num = (rand() % num_files) + 1;
     sprintf(request, "%s%d.html", GET, file_num);
-    printf("%s\n", request);
     write(hSocket, request, strlen(request));
     int bytes_read = 0;
-    while((bytes_read = read(hSocket, output, BUFFER_SIZE)) > 0)
-    {
-      //printf("%s\n", output);
-      pthread_mutex_lock(&bytes_lock);
-      total_bytes += bytes_read;
-      pthread_mutex_unlock(&bytes_lock);
-    }
-
+    bytes_read = read(hSocket, output, BUFFER_SIZE);
+    pthread_mutex_lock(&bytes_lock);
+    total_bytes += bytes_read;
+    pthread_mutex_unlock(&bytes_lock);
+    
     if(close(hSocket) == SOCKET_ERROR)
     {
       printf("Could not close socket\n");

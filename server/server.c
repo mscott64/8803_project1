@@ -23,7 +23,7 @@ int reqs = 0;
 pthread_mutex_t reqs_lock = PTHREAD_MUTEX_INITIALIZER;
 void *boss(void *data);
 void *worker(void *data);
-void *send_error(int hSocket, char *error_msg, char *descrip);
+void send_error(int hSocket, char *error_msg, char *descrip);
 void printUsage(void);
 
 int port_num = DEFAULT_PORT_NUM;
@@ -115,14 +115,13 @@ void *boss(void *data)
     printf("Could not connect to host\n");
     return NULL;
   }
-  getsockname(hServerSocket, (struct sockaddr *)&address, (socklen_t *)&nAddressSize);
 
-  if(listen(hServerSocket, 10) == SOCKET_ERROR)
+  if(listen(hServerSocket, Q_SIZE) == SOCKET_ERROR)
   {
     printf("Could not listen\n");
     return NULL;
   }
-  
+  printf("Listening...\n");
   while(1)
   {
     hSocket = accept(hServerSocket, (struct sockaddr *)&address, (socklen_t *)&nAddressSize);
@@ -159,10 +158,16 @@ void *worker(void *data)
       read(hSocket, pBuffer, BUFFER_SIZE);
       
       if(sscanf(pBuffer, "%[^ ] %[^ ]", method, path) < 2)
-	return send_error(hSocket, BAD_REQUEST, "Not the accepted protocol");
+      {
+	send_error(hSocket, BAD_REQUEST, "Not the accepted protocol");
+	continue;
+      }
       
       if(strcasecmp(method, "get") != 0)
-	return send_error(hSocket, NOT_IMPLEMENTED, "Only implemented GET");
+      {
+	send_error(hSocket, NOT_IMPLEMENTED, "Only implemented GET");
+	continue;
+      }
 
       char *path_ptr = path;
       if(path[0] == '/')
@@ -170,40 +175,44 @@ void *worker(void *data)
       
       int len = strlen(path_ptr);
       if(*path_ptr == '/' || strcmp(path_ptr, "..") == 0 || strncmp(path_ptr, "../", 3) == 0 || strstr(path_ptr, "/../") != NULL || strcmp(&(path_ptr[len-3]), "/..") == 0)
-	return send_error(hSocket, BAD_REQUEST, "Tried to access a private file");
+      {
+	send_error(hSocket, BAD_REQUEST, "Tried to access a private file");
+	continue;
+      }
       
       FILE *f = fopen(path_ptr, "r");
       if(f)
       {
-	while(fgets(pBuffer, BUFFER_SIZE, f) != NULL)
-	  write(hSocket, pBuffer, strlen(pBuffer));
+	fgets(pBuffer, BUFFER_SIZE, f);
+	write(hSocket, pBuffer, strlen(pBuffer));
       }
       else
       {
-	return send_error(hSocket, NOT_FOUND, "Unable to locate file");
-      }      
+	send_error(hSocket, NOT_FOUND, "Unable to locate file");
+	continue;
+      } 
+     
       fclose(f);
       if(close(hSocket) == SOCKET_ERROR)
       {
 	printf("Could not close socket\n");
-	return NULL;
+	continue;
       }
+      printf("Finished hSocket %d\n", hSocket);
     }
   return NULL;
 }
 
-void *send_error(int hSocket, char *error_msg, char *descrip)
+void send_error(int hSocket, char *error_msg, char *descrip)
 {
   int len = strlen(error_msg) + strlen(descrip);
   char pBuffer[len];
   char *buf_ptr = pBuffer;
   memcpy(buf_ptr, error_msg, strlen(error_msg));
   buf_ptr += strlen(error_msg);
-  memcpy(buf_ptr, descrip, strlen(descrip) + 1);
-  write(hSocket, pBuffer, len + 1);
+  memcpy(buf_ptr, descrip, strlen(descrip));
+  write(hSocket, pBuffer, len);
   
   if(close(hSocket) == SOCKET_ERROR)
     printf("Could not close socket\n");
-  
-  return NULL;
 }
