@@ -198,7 +198,6 @@ void *worker(void *data)
 	printf("Could not close socket\n");
 	continue;
       }
-      printf("Finished hSocket %d\n", hSocket);
     }
   return NULL;
 }
